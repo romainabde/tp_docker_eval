@@ -1,0 +1,78 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: eval-quiz-app-db
+    env_file:
+      - .env.db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - quiz-network
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+    image: eval-quiz-app:backend
+    container_name: eval-quiz-app-backend
+    ports:
+      - "3007:3007"
+    env_file:
+      - .env.db
+      - .env.admin
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - quiz-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./
+      target: production
+    image: eval-quiz-app:frontend
+    container_name: eval-quiz-app-frontend
+    ports:
+      - "8080:8080"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    networks:
+      - quiz-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  quiz-network:
+    driver: bridge
