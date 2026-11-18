@@ -55,12 +55,16 @@ services:
       - /var/cache/nginx
       - /var/run
       - /tmp
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0777
     security_opt:
       - "no-new-privileges:true"
     cap_drop:
       - ALL
     depends_on:
       - backend
+    environment:
+      BACKEND_UPSTREAM: backend:3007
+      BACKEND_SCHEME: http
     deploy:
       resources:
         limits:
